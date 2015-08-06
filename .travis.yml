@@ -1,7 +1,7 @@
 language: cpp
 
 install:
-  - wget http://www.cmake.org/files/v3.3/cmake-3.3.0-Linux-i386.tar.gz && tar -xzf cmake-3.3.0-Linux-i386.tar.gz && sudo cp -fR cmake-3.3.0-Linux-i386/* /usr
+  - wget http://www.cmake.org/files/v3.3/cmake-3.3.0-Linux-x86_64.tar.gz && tar -xzf cmake-3.3.0-Linux-x86_64.tar.gz && sudo cp -fR cmake-3.3.0-Linux-x86_64/* /usr
 
 compiler:
   - gcc
