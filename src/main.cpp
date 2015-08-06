@@ -1,6 +1,7 @@
 #include <cstdio>
+#include "f1.h"
 
 int main() {
-  printf("Hello, world!\n");
+  printf(f1());
   return 0;
 }
