@@ -14,3 +14,7 @@ before_script:
   - ../cmake/bin/cmake ..
 
 script: make
+
+cache:
+  directories:
+    - $HOME/cmake
