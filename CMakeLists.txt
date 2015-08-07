@@ -21,7 +21,7 @@ target_link_libraries(googletest INTERFACE gtest gmock ${CMAKE_THREAD_LIBS_INIT}
 target_include_directories(googletest INTERFACE ${CMAKE_BINARY_DIR}/ext/src/gtest/include ${CMAKE_BINARY_DIR}/ext/src/gmock/include)
 
 function(qore_add_common name)
-    target_include_directories(${name} PRIVATE ${CMAKE_SOURCE_DIR}/include)
+    target_include_directories(${name} PRIVATE ${CMAKE_SOURCE_DIR}/include ${CMAKE_CURRENT_SOURCE_DIR})
     target_link_libraries(${name} ${ARG_LIBS} ${GCC_COVERAGE_LINK})
     target_compile_options(${name} PRIVATE ${GCC_COVERAGE_FLAGS})
     set_property(TARGET ${name} PROPERTY CXX_STANDARD 11)
