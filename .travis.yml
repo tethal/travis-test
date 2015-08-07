@@ -1,15 +1,16 @@
+sudo: false
+
 language: cpp
 
 install:
-  - wget http://www.cmake.org/files/v3.3/cmake-3.3.0-Linux-x86_64.tar.gz && tar -xzf cmake-3.3.0-Linux-x86_64.tar.gz && sudo cp -fR cmake-3.3.0-Linux-x86_64/* /usr
+  - wget http://www.cmake.org/files/v3.3/cmake-3.3.0-Linux-x86_64.tar.gz && tar -xzf cmake-3.3.0-Linux-x86_64.tar.gz && mv cmake-3.3.0-Linux-x86_64 cmake
 
 compiler:
   - gcc
-  - clang
 
 before_script:
   - mkdir build
   - cd build
-  - cmake ..
+  - ../cmake/bin/cmake ..
 
-script: make
+script: make && make test
