@@ -13,8 +13,4 @@ before_script:
   - cd build
   - ../cmake/bin/cmake ..
 
-script: make
-
-cache:
-  directories:
-    - $HOME/cmake
+script: make && make test
