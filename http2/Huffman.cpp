@@ -1,12 +1,14 @@
 #include "Huffman.h"
 #include <cassert>
-#include <cstdio>
 
 #include "HuffmanTables.inc"
 
+//TODO cleanup
+
+namespace {
 class Window {
 public:
-    explicit Window(ByteArrayReader &byteArrayReader) : byteArrayReader(byteArrayReader) {
+    Window(const uint8_t *begin, const uint8_t *end) : ptr(begin), end(end) {
         window = 0;
         bits = 0;
         padded = 0;
@@ -23,15 +25,16 @@ public:
         bits -= cnt;
     }
 
-    bool consume2(int cnt) {
-        bool b = bits - padded < cnt;
+    void consume2(int cnt) {
+        if (bits - padded < cnt) {
+            throw Huffman::InvalidEncoding();
+        }
         window <<= cnt;
         bits -= cnt;
-        return b;
     }
 
     bool available() {
-        return byteArrayReader.available() || window != ((1 << bits) - 1) << (16 - bits);
+        return ptr < end || window != ((1 << bits) - 1) << (16 - bits);
     }
 
 private:
@@ -39,8 +42,8 @@ private:
         assert(cnt <= 8);
         while (bits < cnt) {        //=> bits < 8
             uint8_t b;
-            if (byteArrayReader.available()) {
-                b = byteArrayReader.read();
+            if (ptr < end) {
+                b = *ptr++;
             } else {
                 b = 0xFF;
                 padded += 8;
@@ -54,12 +57,13 @@ private:
     uint16_t window;
     int bits;
     int padded;
-    ByteArrayReader &byteArrayReader;
+    const uint8_t *ptr;
+    const uint8_t *end;
 };
+}
 
-std::string Huffman::decode(ByteArrayReader src) {
-    Window win(src);
-
+std::string Huffman::decode(const uint8_t *src, size_t length) {
+    Window win(src, src + length);
     std::string str;
 
     const uint16_t *currentTable = TABLES[0];
@@ -76,11 +80,9 @@ std::string Huffman::decode(ByteArrayReader src) {
             int symbol = (entry >> 4) & 0x1FF;
             int len = entry & 15;
             if (symbol == 256) {
-                break;
+                throw InvalidEncoding();
             }
-            if (win.consume2(len)) {
-                printf("EEEEEE: %s\n", str.c_str());
-            }
+            win.consume2(len);
             str += (char) symbol;
             currentTable = TABLES[0];
             bits = 8;
