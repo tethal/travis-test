@@ -5,7 +5,7 @@
 #include <cstdarg>
 #include <mingw.thread.h>
 
-void log(const char *format, ...) {
+inline void log(const char *format, ...) {
     va_list v;
     va_start(v, format);
     vprintf(format, v);

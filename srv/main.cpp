@@ -1,10 +1,20 @@
-#include "net.h"
-#include "util.h"
+#include "ssl.h"
+
+const char *resp = R"(HTTP/1.1 200 OK
+Content-Type: text/html; charset=utf-8
+Content-Length: length
+
+<html>
+  <head>
+    <title>Test!</title>
+  </head>
+  <body>
+    Hello, world!
+  </body>
+</html>
+)";
 
 #if 0
-#include <openssl/ssl.h>
-#include <openssl/err.h>
-
 void hex(const unsigned char *buf, unsigned int len) {
     for (unsigned int i = 0; i < len; i++) {
         printf("%02X ", buf[i]);
@@ -17,64 +27,6 @@ void hexnl(const unsigned char *buf, unsigned int len) {
 }
 
 //ALPN: 08 68 74 74 70 2F 31 2E 31 08 73 70 64 79 2F 33 2E 31 05 68 32 2D 31 34 02 68 32
-int alpnCallback(SSL *ssl,
-        const unsigned char **out,
-        unsigned char *outlen,
-        const unsigned char *in,
-        unsigned int inlen,
-        void *arg) {
-
-    printf("ALPN: ");
-    unsigned int offset = 0;
-    const unsigned char *found = NULL;
-    while (offset < inlen) {
-        int len = in[offset++];
-        if (memcmp("h2", in + offset, len) == 0) {
-            found = in + offset;
-        }
-        printf("'%.*s', ", len, in + offset);
-        offset += len;
-    }
-    if (found == NULL) {
-        printf("h2 not found\n");
-        return SSL_TLSEXT_ERR_ALERT_FATAL;
-    }
-    printf("found h2\n");
-    *out = found;
-    *outlen = found[-1];
-    return SSL_TLSEXT_ERR_OK;
-}
-
-SSL_CTX *initSsl() {
-    SSL_load_error_strings();
-    SSL_library_init();
-
-    SSL_CTX *sslCtx = SSL_CTX_new(TLSv1_2_server_method());
-    if (sslCtx == NULL) {
-        throw "Unable to create context";
-    }
-    if (SSL_CTX_use_certificate_file(sslCtx, "c:\\projects\\bb\\cert.cer", SSL_FILETYPE_PEM) <= 0) {
-        throw "Unable to load certificate";
-    }
-    if (SSL_CTX_use_PrivateKey_file(sslCtx, "c:\\projects\\bb\\key.pem", SSL_FILETYPE_PEM) <= 0) {
-        throw "Unable to load private key";
-    }
-    if (!SSL_CTX_check_private_key(sslCtx)) {
-        throw "Private key does not match the certificate";
-    }
-
-    SSL_CTX_set_options(sslCtx, SSL_OP_NO_COMPRESSION | SSL_OP_NO_SESSION_RESUMPTION_ON_RENEGOTIATION);
-/*
-    | SSL_OP_SINGLE_DH_USE | SSL_OP_SINGLE_ECDH_USE |
-            (SSL_OP_NO_SSLv2|SSL_OP_NO_SSLv3|\
-                    SSL_OP_NO_TLSv1|SSL_OP_NO_TLSv1_1)
-    );*/
-    SSL_CTX_set_alpn_select_cb(sslCtx, alpnCallback, NULL);
-    //SSL_CTX_set_cipher_list(sslCtx, "ECDHE+AESGCM:!ECDSA");
-    SSL_CTX_set_cipher_list(sslCtx, "ECDHE:DHE");
-    SSL_CTX_set_tmp_ecdh(sslCtx, EC_KEY_new_by_curve_name(NID_X9_62_prime256v1));
-    return sslCtx;
-}
 
 void readFully(SSL *ssl, unsigned char *buf, int len) {
     int r = 0;
@@ -198,62 +150,11 @@ void handleClient(SSL *ssl) {
         }
     }
 }
-
-void thrd(void* arg) {
-    DWORD thread = GetCurrentThreadId();
-    SSL *ssl = (SSL*) arg;
-
-    printf("Thread %lu started\n", thread);
-    try {
-        handleClient(ssl);
-    } catch (const char *e) {
-        printf("Thread %lu error: %s\n", thread, e);
-        ERR_print_errors_fp(stdout);
-    }
-    printf("Thread %lu exiting\n", thread);
-
-    int socket = SSL_get_fd(ssl);
-    SSL_free(ssl);
-    closesocket(socket);
-}
-
-void acceptConnection(SSL_CTX *sslCtx, int serverSocket) {
-
-    SSL *ssl = SSL_new(sslCtx);
-
-    SSL_set_fd(ssl, clientSocket);
-
-    printf("Starting thread\n");
-    std::thread t1(thrd, ssl);
-    t1.detach();
-
-}
-
-int main() {
-    try {
-        printf("Init SSL\n");
-        SSL_CTX *sslCtx = initSsl();
-        printf("Init server\n");
-        int serverSocket = initServer();
-        while (true) {
-            printf("Before acceptConnection\n");
-            acceptConnection(sslCtx, serverSocket);
-        }
-        SSL_CTX_free(sslCtx);
-    } catch (const char *e) {
-        printf("%s\n", e);
-        ERR_print_errors_fp(stdout);
-    }
-    return 0;
-}
 #endif
-
-#define LISTEN_PORT 4430
-
 
 class Client {
 public:
-    Client(Socket &&s) : s(std::move(s)) {
+    Client(SslWrapper &&ssl) : ssl(std::move(ssl)) {
         log("Client created\n");
     }
 
@@ -262,26 +163,35 @@ public:
     }
 
     void handleClient() {
-        //TODO
+        char buf[2048];
+        int bytes = SSL_read(ssl, buf, sizeof(buf));
+        buf[bytes] = 0;
+        printf("Received:\n%s\n", buf);
+        fflush(stdout);
+        SSL_write(ssl, resp, strlen(resp));
     }
 
 private:
-    Socket s;
+    SslWrapper ssl;
 };
+
+#define LISTEN_PORT 4430
 
 int main() {
     try {
-        //ServerSocket s(LISTEN_PORT, std::bind(&x, 123, std::placeholders::_1));
-        //ServerSocket s(LISTEN_PORT, &x);
-        ServerSocket s(LISTEN_PORT, [](Socket &&socket){
-            Client *c = new Client(std::move(socket));
+        SslServer server(INADDR_ANY, LISTEN_PORT, [](SslWrapper &&client) {
+            Client *c = new Client(std::move(client));
             std::thread([=]() {
                 c->handleClient();
                 delete c;
             }).detach();
         });
         getchar();
+        //should wait for clients - they hold indirect references to SSL_CTX, which will be freed here
         log("Shutting down\n");
+    } catch (SslException &e) {
+        log("Caught SSL exception!\n");
+        ERR_print_errors_fp(stdout);
     } catch (std::exception &e) {
         log("Caught exception!\n");
     }

@@ -17,19 +17,20 @@ public:
             throw std::exception();
         }
     }
+
     ~WsaContext() {
         WSACleanup();
     }
 };
 
-class Socket {
+class Socket final {
 public:
     Socket(int socket) : socket(socket) {
     }
 
     Socket(const Socket &s) = delete;
 
-    Socket(Socket &&s) : socket(s.socket) {
+    Socket(Socket &&s) noexcept(true) : socket(s.socket) {
         s.socket = INVALID_SOCKET;
     }
 
@@ -39,7 +40,7 @@ public:
 
     Socket &operator=(const Socket &s) = delete;
 
-    Socket &operator=(Socket &&s) {
+    Socket &operator=(Socket &&s) noexcept(true) {
         socket = s.socket;
         s.socket = INVALID_SOCKET;
         return *this;
@@ -71,8 +72,7 @@ public:
         }
     }
 
-protected:
-    int getSocket() const {
+    operator int() const {
         return socket;
     }
 
@@ -80,21 +80,23 @@ private:
     int socket;
 };
 
-class ServerSocket final : private WsaContext, Socket {
+class Server final : private WsaContext {
 public:
 
-    ServerSocket(uint16_t port, std::function<void(Socket &&)> handler) : ServerSocket(INADDR_ANY, port, handler) {
+    using Handler = std::function<void(Socket &&)>;
+
+    Server(uint32_t addr, uint16_t port, Handler handler) : socket(createSocket()), running(true), handler(handler) {
+        socket.bind(addr, port);
+        socket.listen(10);
+        thread = std::thread(std::bind(&Server::threadFunc, this));
     }
 
-    ServerSocket(uint32_t addr, uint16_t port, std::function<void(Socket &&)> handler) : Socket(createSocket()), running(true), handler(handler) {
-        bind(addr, port);
-        listen(10);
-        thread = std::thread(std::bind(&ServerSocket::threadFunc, this));
-    }
+    Server(const Server &) = delete;
+    Server &operator=(const Server &) = delete;
 
-    ~ServerSocket() {
+    ~Server() {
         running = false;
-        close();
+        socket.close();
         if (thread.joinable()) {
             thread.join();
         }
@@ -106,7 +108,7 @@ private:
         while (running) {
             struct sockaddr_in clientAddr;
             int len = sizeof(clientAddr);
-            int clientSocket = ::accept(getSocket(), (struct sockaddr*) &clientAddr, &len);
+            int clientSocket = ::accept(socket, (struct sockaddr*) &clientAddr, &len);
 
             if (clientSocket != INVALID_SOCKET) {
                 log("Accepted connection from: %s\n", inet_ntoa(clientAddr.sin_addr));
@@ -120,8 +122,9 @@ private:
     }
 
 private:
+    Socket socket;
     std::thread thread;
-    std::function<void(Socket &&)> handler;
+    Handler handler;
     volatile bool running;
 
     static int createSocket() {
