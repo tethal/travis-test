@@ -25,33 +25,24 @@ public:
 class Socket {
 public:
     Socket(int socket) : socket(socket) {
-        log("CREATE %d\n", socket);
     }
 
-    Socket(const Socket &s) : socket(INVALID_SOCKET) {
-        log("COPY %d\n", s.socket);
-    }
+    Socket(const Socket &s) = delete;
 
     Socket(Socket &&s) : socket(s.socket) {
         s.socket = INVALID_SOCKET;
-        log("MOVE %d\n", socket);
     }
 
-    Socket &operator=(const Socket &s) {
-        log("COPY-ASSIGN %d\n", s.socket);
-        return *this;
+    ~Socket() {
+        close();
     }
+
+    Socket &operator=(const Socket &s) = delete;
 
     Socket &operator=(Socket &&s) {
         socket = s.socket;
         s.socket = INVALID_SOCKET;
-        log("MOVE-ASSIGN %d\n", socket);
         return *this;
-    }
-
-    ~Socket() {
-        log("CLOSE %d\n", socket);
-        close();
     }
 
     void close() {
@@ -92,10 +83,10 @@ private:
 class ServerSocket final : private WsaContext, Socket {
 public:
 
-    ServerSocket(uint16_t port, std::function<void(Socket &)> handler) : ServerSocket(INADDR_ANY, port, handler) {
+    ServerSocket(uint16_t port, std::function<void(Socket &&)> handler) : ServerSocket(INADDR_ANY, port, handler) {
     }
 
-    ServerSocket(uint32_t addr, uint16_t port, std::function<void(Socket &)> handler) : Socket(createSocket()), running(true), handler(handler) {
+    ServerSocket(uint32_t addr, uint16_t port, std::function<void(Socket &&)> handler) : Socket(createSocket()), running(true), handler(handler) {
         bind(addr, port);
         listen(10);
         thread = std::thread(std::bind(&ServerSocket::threadFunc, this));
@@ -130,7 +121,7 @@ private:
 
 private:
     std::thread thread;
-    std::function<void(Socket &)> handler;
+    std::function<void(Socket &&)> handler;
     volatile bool running;
 
     static int createSocket() {

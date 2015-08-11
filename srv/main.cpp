@@ -253,7 +253,7 @@ int main() {
 
 class Client {
 public:
-    Client(Socket &&s) : s(s) {
+    Client(Socket &&s) : s(std::move(s)) {
         log("Client created\n");
     }
 
@@ -261,24 +261,25 @@ public:
         log("Client done\n");
     }
 
-private:
-    Socket &s;
-};
+    void handleClient() {
+        //TODO
+    }
 
-void x(Socket &s) {
-    log("Creating thread\n");
-    std::thread([&]() {
-        log("X\n");
-        Client c(std::move(s));
-        log("Y\n");
-    }).detach();
-}
+private:
+    Socket s;
+};
 
 int main() {
     try {
         //ServerSocket s(LISTEN_PORT, std::bind(&x, 123, std::placeholders::_1));
-        //ServerSocket s(LISTEN_PORT, [](Socket &&yyy){x(234, std::move(yyy));});
-        ServerSocket s(LISTEN_PORT, &x);
+        //ServerSocket s(LISTEN_PORT, &x);
+        ServerSocket s(LISTEN_PORT, [](Socket &&socket){
+            Client *c = new Client(std::move(socket));
+            std::thread([=]() {
+                c->handleClient();
+                delete c;
+            }).detach();
+        });
         getchar();
         log("Shutting down\n");
     } catch (std::exception &e) {
