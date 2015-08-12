@@ -1,7 +1,7 @@
 qore_add_executable(srv
     main.cpp
     applink.c
-    ssl.cpp
+    socket.cpp
 
     LIBS
     http2

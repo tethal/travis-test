@@ -1,5 +1,6 @@
 #include "ssl.h"
 
+#if 0
 bool SslInitializer::sslInitDone = false;
 
 int alpnCallback(SSL *ssl,
@@ -29,3 +30,4 @@ int alpnCallback(SSL *ssl,
     *outlen = found[-1];
     return SSL_TLSEXT_ERR_OK;
 }
+#endif

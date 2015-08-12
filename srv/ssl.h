@@ -1,6 +1,7 @@
 #ifndef SRV_SSL_H_
 #define SRV_SSL_H_
 
+#if 0
 #include <memory>
 #include <openssl/ssl.h>
 #include <openssl/err.h>
@@ -132,15 +133,15 @@ private:
 class SslServer final {
 public:
 
-    using Handler = std::function<void(SslWrapper &&)>;
+    using Handler = std::function<void(Stream &&)>;
 
     SslServer(uint32_t addr, uint16_t port, Handler handler) : server(addr, port, std::bind(&SslServer::accept, this, std::placeholders::_1)), handler(handler) {
     }
 
 private:
-    void accept(Socket &&socket) {
+    void accept(Stream &&stream) {
         try {
-            handler(sslCtx.wrap(std::move(socket)));
+            handler(sslCtx.wrap(std::move(stream)));
         } catch (SslException &e) {
             log("Caught SSL exception in accept()!\n");
             ERR_print_errors_fp(stdout);
@@ -155,4 +156,5 @@ private:
     Handler handler;
 };
 
+#endif
 #endif /* SRV_SSL_H_ */
