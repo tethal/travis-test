@@ -15,6 +15,7 @@ class SocketException : public std::exception {
 public:
     SocketException(std::string &&msg);
     SocketException(std::string &&msg, int errorCode);
+    ~SocketException() noexcept(true) { }
 
 private:
     std::string msg;
