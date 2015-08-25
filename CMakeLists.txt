@@ -8,6 +8,8 @@ if(COVERAGE)
     SET(GCC_COVERAGE_LINK gcov)
 endif(COVERAGE)
 
+FIND_PACKAGE(OpenSSL REQUIRED)
+
 include(CMakeParseArguments)
 
 #Setup GoogleTest and GoogleMock
@@ -21,7 +23,7 @@ target_link_libraries(googletest INTERFACE gtest gmock ${CMAKE_THREAD_LIBS_INIT}
 target_include_directories(googletest INTERFACE ${CMAKE_BINARY_DIR}/ext/src/gtest/include ${CMAKE_BINARY_DIR}/ext/src/gmock/include)
 
 function(qore_add_common name)
-    target_include_directories(${name} PRIVATE ${CMAKE_SOURCE_DIR}/include)
+    target_include_directories(${name} PRIVATE ${CMAKE_SOURCE_DIR}/include ${CMAKE_CURRENT_SOURCE_DIR} ${OPENSSL_INCLUDE_DIR})
     target_link_libraries(${name} ${ARG_LIBS} ${GCC_COVERAGE_LINK})
     target_compile_options(${name} PRIVATE ${GCC_COVERAGE_FLAGS})
     set_property(TARGET ${name} PROPERTY CXX_STANDARD 11)
@@ -37,7 +39,7 @@ endfunction(qore_add_static_library)
 function(qore_add_executable name)
     cmake_parse_arguments(ARG "" "" "LIBS" ${ARGN})
     add_executable(${name} ${ARG_UNPARSED_ARGUMENTS})
-    target_link_libraries(${name} ${ARG_LIBS})
+    target_link_libraries(${name} ${ARG_LIBS} ${OPENSSL_LIBRARIES})
     qore_add_common(${name})
 endfunction(qore_add_executable)
 
@@ -45,7 +47,6 @@ function(qore_add_test baseName)
     set(name "test-${baseName}")
     cmake_parse_arguments(ARG "" "" "LIBS" ${ARGN})
     add_executable(${name} ${ARG_UNPARSED_ARGUMENTS})
-    target_include_directories(${name} PRIVATE ${CMAKE_SOURCE_DIR}/mock)
     target_link_libraries(${name} ${baseName} ${ARG_LIBS} googletest)
     qore_add_common(${name})
     add_test(${baseName} ${name})
@@ -68,3 +69,4 @@ if(COVERAGE)
 endif(COVERAGE)
 
 add_subdirectory(http2)
+add_subdirectory(srv)

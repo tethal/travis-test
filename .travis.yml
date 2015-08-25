@@ -2,6 +2,9 @@ sudo: false
 
 language: cpp
 
+gcc:
+  - "4.8"
+
 install:
   - wget http://www.cmake.org/files/v3.3/cmake-3.3.0-Linux-x86_64.tar.gz && tar -xzf cmake-3.3.0-Linux-x86_64.tar.gz && mv cmake-3.3.0-Linux-x86_64 cmake
 
